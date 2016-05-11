@@ -9,13 +9,9 @@
      *
      */
 
-//require 'vendor/autoload.php';
-//use Mailgun\Mailgun;
-
-//die('this was hit');
 
 
-include "content/mu-plugins/mailgun/vendor/autoload.php";
+
 
 Class WP_Mail_MailGun{
 
