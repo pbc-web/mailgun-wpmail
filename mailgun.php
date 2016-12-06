@@ -10,10 +10,10 @@
      */
 
 
+include('vendor/autoload.php');
 
 
-
-Class WP_Mail_MailGun{
+Class PBC_WP_Mail_MailGun{
 
 	var $http;
 	var $mg;
@@ -155,7 +155,7 @@ Class WP_Mail_MailGun{
 
 		// look for the MailGun wrapper, if it doesn't exist create it
 		if(!isset($mg)){
-			$mg = new WP_Mail_MailGun();
+			$mg = new PBC_WP_Mail_MailGun();
 		}
 
 		$atts = apply_filters( 'wp_mail', compact( 'to', 'subject', 'message', 'headers', 'attachments' ) );
@@ -246,7 +246,6 @@ Class WP_Mail_MailGun{
 
 	    	$resp = $mg->send($from, $to_addresses, $subject, $message, $headers, $attachments);
 
-	    	//pbc_dump($resp);
 
 	    } catch (Exception $e){
 
@@ -265,6 +264,6 @@ Class WP_Mail_MailGun{
 	        return false;
 	    }
 
-
+	    return true;
 
 	}	
