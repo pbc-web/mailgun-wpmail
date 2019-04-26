@@ -9,10 +9,6 @@
 	 *
 	 */
 
-
-include('vendor/autoload.php');
-
-
 Class PBC_WP_Mail_MailGun{
 
 	var $http;
@@ -21,13 +17,19 @@ Class PBC_WP_Mail_MailGun{
 	public function __construct(){
 		$this->http = new \Http\Adapter\Guzzle6\Client();
 		$this->mg = new \Mailgun\Mailgun(MAILGUN_API_KEY, $this->http);
+
+		add_action("wp_mail_failed", [$this, "write_to_log"], 10, 1);
+	}
+
+	public function write_to_log($error){
+		echo "<pre>";
+		Var_dump($error);
+		error_log("MailGun: Email failed to send - " . $error->get_error_message() . print_r( $error->get_error_data(), true ) );
 	}
 
 	public function send($from, $to, $subject, $message){
 
-
 		$builder = $this->mg->MessageBuilder();
-
 
 		$builder->setFromAddress($from['address']);
 
@@ -40,7 +42,7 @@ Class PBC_WP_Mail_MailGun{
 		$builder->setSubject($subject);
 
 
-		//pbc_dump($builder);
+		
 
 		if ( empty( $headers ) ) {
 			$headers = array();
@@ -54,9 +56,6 @@ Class PBC_WP_Mail_MailGun{
 					$tempheaders = $headers;
 
 			}
-
-				//  pbc_dump($builder);
-				 // die("what?");
 
 			$headers = array();
 			$cc = array();
@@ -129,18 +128,26 @@ Class PBC_WP_Mail_MailGun{
 
 		}
 
-		try{
-				$this->mg->post( MAILGUN_DOMAIN . "/messages", $builder->getMessage());
-			} catch(exception $e){
 
-			}
+		// Send the actual message then return true or false based on success
 
-		 // die();
-		}
+		//try{
+
+		return	$this->mg->post( MAILGUN_DOMAIN . "/messages", $builder->getMessage());
+		//	return true;
+
+		//} catch(Exception $e){
+
+		//	error_log("MailGun: Email failed to send - ". $e->getMessage() );
+		//	return false;
+		// }
+	}
 }
 
 // Only let this get created once
 if ( !function_exists('wp_mail') ) {
+
+
 	function wp_mail( $to, $subject, $message, $headers = "", $attachments = "" ){
 
 		global $mg;
@@ -275,6 +282,12 @@ if ( !function_exists('wp_mail') ) {
 		 * https://core.trac.wordpress.org/ticket/5007.
 		 */
 
+		/*
+		* By Default Wordpress string to www and uses the server name as the from address
+		* This is fine, on production and live servers but sometimes you are on a test server, or local host
+		* This will cause MailGun to reject your emails
+		* Instead, lets get the admin email address.
+
 		if ( !isset( $from_email ) ) {
 			// Get the site domain and get rid of www.
 			$sitename = strtolower( $_SERVER['SERVER_NAME'] );
@@ -283,6 +296,9 @@ if ( !function_exists('wp_mail') ) {
 			}
 			$from_email = 'wordpress@' . $sitename;
 		}
+		*/
+
+		$from_email = get_option("admin_email");
 
 		// Can filter that
 		$from_email = apply_filters( 'wp_mail_from', $from_email );
@@ -320,24 +336,34 @@ if ( !function_exists('wp_mail') ) {
 		}
 
 
-		try {
-			$resp = $mg->send($from, $to_addresses, $subject, $message, $headers, $attachments);
-		} catch (Exception $e){
-			$mail_error_data = compact( 'to', 'subject', 'message', 'headers', 'attachments' );
 
+
+		// send it
+		try{
+
+			$did_send = $mg->send($from, $to_addresses, $subject, $message, $headers, $attachments);
+			return true;
+
+		} catch(Exception $e){
+
+			$mail_error_data = compact( 'to', 'subject', 'headers' );
+			$error = new WP_Error( "000", $e->getMessage(), $mail_error_data ) ;
+			
 			/**
-			 * Fires after a phpmailerException is caught.
+			 * Fires after a MailGun is caught.
 			 *
 			 * @since 4.4.0
 			 *
 			 * @param WP_Error $error A WP_Error object with the phpmailerException code, message, and an array
 			 *                        containing the mail recipient, subject, message, headers, and attachments.
 			 */
-			do_action( 'wp_mail_failed', new WP_Error( $e->getCode(), $e->getMessage(), $mail_error_data ) );
-
+			do_action( 'wp_mail_failed', $error);
 			return false;
 		}
-
-		return true;
 	}
 }
+
+
+
+var_dump(wp_mail( "stewart@poweredbycoffee.co.uk", "MailGun test", "this is a test for mailgun"));
+die();
