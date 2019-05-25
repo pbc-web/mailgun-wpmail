@@ -362,8 +362,3 @@ if ( !function_exists('wp_mail') ) {
 		}
 	}
 }
-
-
-
-var_dump(wp_mail( "stewart@poweredbycoffee.co.uk", "MailGun test", "this is a test for mailgun"));
-die();
