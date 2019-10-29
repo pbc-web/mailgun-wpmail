@@ -246,6 +246,3 @@ if ( !function_exists('wp_mail') ) {
 	}
 }
 
-
-
-wp_mail("stewart@poweredbycoffee.co.uk", "email send test", "email body");
