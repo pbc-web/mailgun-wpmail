@@ -11,6 +11,7 @@ A simple and modern approach to stream filtering in PHP
   * [fun()](#fun)
   * [remove()](#remove)
 * [Install](#install)
+* [Tests](#tests)
 * [License](#license)
 
 ## Why?
@@ -26,13 +27,13 @@ These filters can be used to easily and efficiently perform various transformati
 * and much more.
 
 But let's face it:
-Its API is [*difficult to work with*](http://php.net/manual/en/php-user-filter.filter.php)
-and its documentation is [*subpar*](http://stackoverflow.com/questions/27103269/what-is-a-bucket-brigade).
+Its API is [*difficult to work with*](https://www.php.net/manual/en/php-user-filter.filter.php)
+and its documentation is [*subpar*](https://stackoverflow.com/questions/27103269/what-is-a-bucket-brigade).
 This combined means its powerful features are often neglected.
 
 This project aims to make these features more accessible to a broader audience.
 * **Lightweight, SOLID design** -
-  Provides a thin abstraction that is [*just good enough*](http://en.wikipedia.org/wiki/Principle_of_good_enough)
+  Provides a thin abstraction that is [*just good enough*](https://en.wikipedia.org/wiki/Principle_of_good_enough)
   and does not get in your way.
   Custom filters require trivial effort.
 * **Good test coverage** -
@@ -139,6 +140,17 @@ Filter\append($stream, function ($chunk) {
 }, STREAM_FILTER_READ);
 ```
 
+> Note that once a filter has been added to stream, the stream can no longer be passed to
+> [`stream_select()`](https://www.php.net/manual/en/function.stream-select.php)
+> (and family).
+>
+> > Warning: stream_select(): cannot cast a filtered stream on this system in {file} on line {line}
+>
+> This is due to limitations of PHP's stream filter support, as it can no longer reliably
+> tell when the underlying stream resource is actually ready.
+> As an alternative, consider calling `stream_select()` on the unfiltered stream and
+> then pass the unfiltered data through the [`fun()`](#fun) function.
+
 ### prepend()
 
 The `prepend($stream, $callback, $read_write = STREAM_FILTER_ALL)` function can be used to
@@ -157,12 +169,16 @@ $filter = Filter\prepend($stream, function ($chunk) {
 });
 ```
 
+Except for the position in the list of filters, this function behaves exactly
+like the [`append()`](#append) function.
+For more details about its behavior, see also the [`append()`](#append) function.
+
 ### fun()
 
 The `fun($filter, $parameters = null)` function can be used to
 create a filter function which uses the given built-in `$filter`.
 
-PHP comes with a useful set of [built-in filters](http://php.net/manual/en/filters.php).
+PHP comes with a useful set of [built-in filters](https://www.php.net/manual/en/filters.php).
 Using `fun()` makes accessing these as easy as passing an input string to filter
 and getting the filtered output string.
 
@@ -175,7 +191,7 @@ assert('test' === $fun($fun('test'));
 
 Please note that not all filter functions may be available depending on installed
 PHP extensions and the PHP version in use.
-In particular, [HHVM](http://hhvm.com/) may not offer the same filter functions
+In particular, [HHVM](https://hhvm.com/) may not offer the same filter functions
 or parameters as Zend PHP.
 Accessing an unknown filter function will result in a `RuntimeException`:
 
@@ -183,8 +199,12 @@ Accessing an unknown filter function will result in a `RuntimeException`:
 Filter\fun('unknown'); // throws RuntimeException
 ```
 
-Some filters may accept or require additional filter parameters.
-The optional `$parameters` argument will be passed to the filter handler as-is.
+Some filters may accept or require additional filter parameters – most
+filters do not require filter parameters.
+If given, the optional `$parameters` argument will be passed to the
+underlying filter handler as-is.
+In particular, note how *not passing* this parameter at all differs from
+explicitly passing a `null` value (which many filters do not accept).
 Please refer to the individual filter definition for more details.
 For example, the `string.strip_tags` filter can be invoked like this:
 
@@ -198,7 +218,7 @@ assert('<b>hi</b>' === $ret);
 Under the hood, this function allocates a temporary memory stream, so it's
 recommended to clean up the filter function after use.
 Also, some filter functions (in particular the
-[zlib compression filters](http://php.net/manual/en/filters.compression.php))
+[zlib compression filters](https://www.php.net/manual/en/filters.compression.php))
 may use internal buffers and may emit a final data chunk on close.
 The filter function can be closed by invoking without any arguments:
 
@@ -240,13 +260,42 @@ Filter\remove($filter);
 
 ## Install
 
-The recommended way to install this library is [through composer](https://getcomposer.org).
-[New to composer?](https://getcomposer.org/doc/00-intro.md)
+The recommended way to install this library is [through Composer](https://getcomposer.org).
+[New to Composer?](https://getcomposer.org/doc/00-intro.md)
+
+This project follows [SemVer](https://semver.org/).
+This will install the latest supported version:
 
 ```bash
-$ composer require clue/stream-filter:~1.3
+$ composer require clue/stream-filter:^1.4.1
+```
+
+See also the [CHANGELOG](CHANGELOG.md) for details about version upgrades.
+
+This project aims to run on any platform and thus does not require any PHP
+extensions and supports running on legacy PHP 5.3 through current PHP 7+ and
+HHVM.
+It's *highly recommended to use PHP 7+* for this project.
+Older PHP versions may suffer from a number of inconsistencies documented above.
+
+## Tests
+
+To run the test suite, you first need to clone this repo and then install all
+dependencies [through Composer](https://getcomposer.org):
+
+```bash
+$ composer install
+```
+
+To run the test suite, go to the project root and run:
+
+```bash
+$ php vendor/bin/phpunit
 ```
 
 ## License
 
-MIT
+This project is released under the permissive [MIT license](LICENSE).
+
+> Did you know that I offer custom development services and issuing invoices for
+  sponsorships of releases and for contributions? Contact me (@clue) for details.
