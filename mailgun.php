@@ -38,7 +38,6 @@ Class PBC_WP_Mail_MailGun{
 		$builder->setTextBody($message);
 		$builder->setSubject($subject);
 
-		var_dump($builder->getMessage());
 		$this->mg->messages()->send(MAILGUN_DOMAIN, $builder->getMessage());
 	}
 }
