@@ -225,7 +225,7 @@ if ( !function_exists('wp_mail') ) {
 
 		$cc_addresses = [];
 
-		foreach ( (array) $bcc as $recipient ) {
+		foreach ( (array) $cc as $recipient ) {
 			// Break $recipient into name and address parts if in the format "Foo <bar@baz.com>"
 			$recipient_name = '';
 			if ( preg_match( '/(.*)<(.+)>/', $recipient, $matches ) ) {
