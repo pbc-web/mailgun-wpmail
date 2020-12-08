@@ -1,37 +1,42 @@
 <?php
+
 /**
-	 * Plugin Name: MailGunWPMail
-	 * Plugin URI: http://poweredbycoffee.co.uk
-	 * Description: Enables the loading of plugins sitting in mu-plugins (as folders)
-	 * Version: 0.1
-	 * Author: poweredbycoffee, stewarty
-	 * Author URI: http://poweredbycoffee.co.uk
-	 *
-	 */
+ * Plugin Name: MailGunWPMail
+ * Plugin URI: http://poweredbycoffee.co.uk
+ * Description: Enables the loading of plugins sitting in mu-plugins (as folders)
+ * Version: 3.0
+ * Author: poweredbycoffee, stewarty
+ * Author URI: http://poweredbycoffee.co.uk
+ *
+*/
 
+class PBC_WP_Mail_MailGun {
 
-Class PBC_WP_Mail_MailGun{
+	public $http;
+	public $mg;
 
-	var $http;
-	var $mg;
-
-	public function __construct(){
-	
-
-		if(!defined('MAILGUN_API_BASE')){
-			define("MAILGUN_API_BASE","https://api.mailgun.net");
+	public function __construct() {
+		if(!defined('MAILGUN_API_BASE')) {
+			define('MAILGUN_API_BASE', 'https://api.mailgun.net');
 		}
 
 		$this->mg = \Mailgun\Mailgun::create(MAILGUN_API_KEY, MAILGUN_API_BASE);
 	}
 
-	public function send($from, $to, $subject, $message){
-
-		//die("in send");
+	public function send($from, $to, $subject, $message, $headers): void {
 		$builder = new \Mailgun\Message\MessageBuilder();
 		$builder->setFromAddress($from['address']);
-		foreach($to as $email => $name){
+
+		foreach($to as $email => $name) {
 			$builder->addToRecipient($email, [$name]);
+		}
+
+		foreach($headers['cc'] as $email => $name) {
+			$builder->addCcRecipient($email, [$name]);
+		}
+
+		foreach($headers['bcc'] as $email => $name) {
+			$builder->addBccRecipient($email, [$name]);
 		}
 
 		$builder->setHtmlBody($message);
@@ -44,12 +49,12 @@ Class PBC_WP_Mail_MailGun{
 
 // Only let this get created once
 if ( !function_exists('wp_mail') ) {
-	function wp_mail( $to, $subject, $message, $headers = "", $attachments = "" ){
+	function wp_mail( $to, $subject, $message, $headers = "", $attachments = "" ) {
 
 		global $mg;
 
 		// look for the MailGun wrapper, if it doesn't exist create it
-		if(!isset($mg)){
+		if(!isset($mg)) {
 			$mg = new PBC_WP_Mail_MailGun();
 		}
 
@@ -75,11 +80,9 @@ if ( !function_exists('wp_mail') ) {
 			$attachments = $atts['attachments'];
 		}
 
-		if ( ! is_array( $attachments ) ) {
+		if ( !is_array( $attachments ) ) {
 			$attachments = explode( "\n", str_replace( "\r\n", "\n", $attachments ) );
 		}
-
-
 
 		// Headers
 		$cc = $bcc = $reply_to = array();
@@ -111,7 +114,7 @@ if ( !function_exists('wp_mail') ) {
 					list( $name, $content ) = explode( ':', trim( $header ), 2 );
 
 					// Cleanup crew
-					$name    = trim( $name    );
+					$name    = trim( $name );
 					$content = trim( $content );
 
 					switch ( strtolower( $name ) ) {
@@ -169,8 +172,6 @@ if ( !function_exists('wp_mail') ) {
 			}
 		}
 
-
-
 		 /* If we don't have an email from the input headers default to wordpress@$sitename
 		 * Some hosts will block outgoing mail from this address if it doesn't exist but
 		 * there's no easy alternative. Defaulting to admin_email might appear to be another
@@ -199,12 +200,12 @@ if ( !function_exists('wp_mail') ) {
 
 		// this will be passed into send
 		$from = [
-			"address" =>$from_email,
-			"name" => $from_name
+			'address' => $from_email,
+			'name' => $from_name
 		];
 
 		if ( !is_array( $to ) ) {
-			 $to = explode( ',', $to );
+			$to = explode( ',', $to );
 		}
 
 		$to_addresses = [];
@@ -222,10 +223,45 @@ if ( !function_exists('wp_mail') ) {
 			$to_addresses[$recipient] = $recipient_name;
 		}
 
+		$cc_addresses = [];
+
+		foreach ( (array) $bcc as $recipient ) {
+			// Break $recipient into name and address parts if in the format "Foo <bar@baz.com>"
+			$recipient_name = '';
+			if ( preg_match( '/(.*)<(.+)>/', $recipient, $matches ) ) {
+				if ( count( $matches ) == 3 ) {
+					$recipient_name = $matches[1];
+					$recipient = $matches[2];
+				}
+			}
+
+			$cc_addresses[$recipient] = $recipient_name;
+		}
+
+		// Set up headers
+		$headers['cc'] = $cc_addresses;
+
+		$bcc_addresses = [];
+
+		foreach ( (array) $bcc as $recipient ) {
+			// Break $recipient into name and address parts if in the format "Foo <bar@baz.com>"
+			$recipient_name = '';
+			if ( preg_match( '/(.*)<(.+)>/', $recipient, $matches ) ) {
+				if ( count( $matches ) == 3 ) {
+					$recipient_name = $matches[1];
+					$recipient = $matches[2];
+				}
+			}
+
+			$bcc_addresses[$recipient] = $recipient_name;
+		}
+
+		// Set up headers
+		$headers['bcc'] = $bcc_addresses;
 
 		try {
 			$resp = $mg->send($from, $to_addresses, $subject, $message, $headers, $attachments);
-		} catch (Exception $e){
+		} catch (Exception $e) {
 			$mail_error_data = compact( 'to', 'subject', 'message', 'headers', 'attachments' );
 
 			/**
@@ -244,4 +280,3 @@ if ( !function_exists('wp_mail') ) {
 		return true;
 	}
 }
-
