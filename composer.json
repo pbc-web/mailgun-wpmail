@@ -1,16 +1,17 @@
 {
-    "name": "poweredbycoffee/wpmail-mailgun",
-    "description": "Dropin to Use Mailgun for sending Email From WordPress",
-    "type": "wordpress-muplugin",
-    "license": "gpl2",
-    "authors": [
-        {
-            "name": "Stewart Ritchie",
-            "email": "stewart@poweredbycoffee.co.uk"
-        }
-    ],
-    "require": {
-        "mailgun/mailgun-php": "~2.0",
-        "php-http/guzzle6-adapter": "^1.0"
-    }
+	"name": "poweredbycoffee/wpmail-mailgun",
+	"description": "Drop-in to use MailGun for sending email from WordPress",
+	"license": "gpl2",
+	"type":"wordpress-muplugin",
+	"authors": [
+		{
+			"name": "Stewart Ritchie",
+			"email": "stewart@poweredbycoffee.co.uk"
+		}
+	],
+	"require": {
+		"mailgun/mailgun-php": "^3.2",
+		"kriswallsmith/buzz": "^1.1",
+		"nyholm/psr7": "^1.3"
+	}
 }

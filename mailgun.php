@@ -1,153 +1,90 @@
 <?php
+
 /**
-	 * Plugin Name: MailGunWPMail
-	 * Plugin URI: http://poweredbycoffee.co.uk
-	 * Description: Enables the loading of plugins sitting in mu-plugins (as folders)
-	 * Version: 0.1
-	 * Author: poweredbycoffee, stewarty
-	 * Author URI: http://poweredbycoffee.co.uk
-	 *
-	 */
+ * Plugin Name: MailGunWPMail
+ * Plugin URI: http://poweredbycoffee.co.uk
+ * Description: Enables the loading of plugins sitting in mu-plugins (as folders)
+ * Version: 3.0
+ * Author: poweredbycoffee, stewarty
+ * Author URI: http://poweredbycoffee.co.uk
+ *
+*/
 
+class PBC_WP_Mail_MailGun {
 
-include('vendor/autoload.php');
+	public $http;
+	public $mg;
+	static $errors = [];
 
+	private static $instance = null;
 
-Class PBC_WP_Mail_MailGun{
+	public function __construct() {
 
-	var $http;
-	var $mg;
+		if (self::$instance !== null){
+			return self::$instance;
+	  	}
 
-	public function __construct(){
-		$this->http = new \Http\Adapter\Guzzle6\Client();
-		$this->mg = new \Mailgun\Mailgun(MAILGUN_API_KEY, $this->http);
+		if(!defined('MAILGUN_API_BASE')) {
+			define('MAILGUN_API_BASE', 'https://api.mailgun.net');
+		}
+
+		$this->mg = \Mailgun\Mailgun::create(MAILGUN_API_KEY, MAILGUN_API_BASE);
+
+		add_action("wp_mail_failed", [__CLASS__, "capture_email_failure"]);
 	}
 
-	public function send($from, $to, $subject, $message){
+	// The object is created from within the class itself
+  	// only if the class has no instance.
+  	public static function instance(){
 
+    	if (self::$instance == null){
+      		self::$instance = new Self();
+    	}
+ 
+    	return self::$instance;
+  }
 
-		$builder = $this->mg->MessageBuilder();
+	public static function capture_email_failure($error){
+		self::$errors[] = $error;
+	}
 
+	public static function getErrors(){
+		return self::$errors;
+	}
 
+	public function send($from, $to, $subject, $message, $headers): void {
+		$builder = new \Mailgun\Message\MessageBuilder();
 		$builder->setFromAddress($from['address']);
 
-		foreach($to as $email => $name){
+		foreach($to as $email => $name) {
 			$builder->addToRecipient($email, [$name]);
+		}
+
+		foreach($headers['cc'] as $email => $name) {
+			$builder->addCcRecipient($email, [$name]);
+		}
+
+		foreach($headers['bcc'] as $email => $name) {
+			$builder->addBccRecipient($email, [$name]);
 		}
 
 		$builder->setHtmlBody($message);
 		$builder->setTextBody($message);
 		$builder->setSubject($subject);
 
-
-		//pbc_dump($builder);
-
-		if ( empty( $headers ) ) {
-			$headers = array();
-		} else {
-
-			if ( !is_array( $headers ) ) {
-					// Explode the headers out, so this function can take both
-					// string headers and an array of headers.
-					 $tempheaders = explode( "\n", str_replace( "\r\n", "\n", $headers ) );
-			} else {
-					$tempheaders = $headers;
-
-			}
-
-				//  pbc_dump($builder);
-				 // die("what?");
-
-			$headers = array();
-			$cc = array();
-			$bcc = array();
-
-			// If it's actually got contents
-			if ( !empty( $tempheaders ) ) {
-					// Iterate through the raw headers
-					foreach ( (array) $tempheaders as $header ) {
-							if ( strpos($header, ':') === false ) {
-									if ( false !== stripos( $header, 'boundary=' ) ) {
-											$parts = preg_split('/boundary=/i', trim( $header ) );
-											$boundary = trim( str_replace( array( "'", '"' ), '', $parts[1] ) );
-									}
-									continue;
-							}
-							// Explode them out
-							list( $name, $content ) = explode( ':', trim( $header ), 2 );
-
-							// Cleanup crew
-							$name    = trim( $name    );
-							$content = trim( $content );
-
-							switch ( strtolower( $name ) ) {
-									// Mainly for legacy -- process a From: header if it's there
-									case 'from':
-											$bracket_pos = strpos( $content, '<' );
-											if ( $bracket_pos !== false ) {
-													// Text before the bracketed email is the "From" name.
-													if ( $bracket_pos > 0 ) {
-															$from_name = substr( $content, 0, $bracket_pos - 1 );
-															$from_name = str_replace( '"', '', $from_name );
-															$from_name = trim( $from_name );
-													}
-
-													$from_email = substr( $content, $bracket_pos + 1 );
-													$from_email = str_replace( '>', '', $from_email );
-													$from_email = trim( $from_email );
-
-											// Avoid setting an empty $from_email.
-											} elseif ( '' !== trim( $content ) ) {
-													$from_email = trim( $content );
-											}
-											break;
-									case 'cc':
-											$cc = array_merge( (array) $cc, explode( ',', $content ) );
-											break;
-									case 'bcc':
-											$bcc = array_merge( (array) $bcc, explode( ',', $content ) );
-											break;
-									default:
-											// Add it to our grand headers array
-											$headers[trim( $name )] = trim( $content );
-											break;
-							}
-					}
-			}
-
-			foreach ($cc as $email){
-				$builder->addCcRecipient($email);
-			}
-
-			foreach ($bcc as $email){
-				$builder->addCcRecipient($email);
-			}
-
-			foreach ($headers as $name => $data){
-				$builder->addCustomHeader($name, $data);
-			}
-
-		}
-
-		try{
-				$this->mg->post( MAILGUN_DOMAIN . "/messages", $builder->getMessage());
-			} catch(exception $e){
-
-			}
-
-		 // die();
-		}
+		$this->mg->messages()->send(MAILGUN_DOMAIN, $builder->getMessage());
+	}
 }
 
 // Only let this get created once
 if ( !function_exists('wp_mail') ) {
-	function wp_mail( $to, $subject, $message, $headers = "", $attachments = "" ){
+	function wp_mail( $to, $subject, $message, $headers = "", $attachments = "" ) {
 
 		global $mg;
 
 		// look for the MailGun wrapper, if it doesn't exist create it
-		if(!isset($mg)){
-			$mg = new PBC_WP_Mail_MailGun();
+		if(!isset($mg)) {
+			$mg = PBC_WP_Mail_MailGun::instance();
 		}
 
 		$atts = apply_filters( 'wp_mail', compact( 'to', 'subject', 'message', 'headers', 'attachments' ) );
@@ -172,11 +109,9 @@ if ( !function_exists('wp_mail') ) {
 			$attachments = $atts['attachments'];
 		}
 
-		if ( ! is_array( $attachments ) ) {
+		if ( !is_array( $attachments ) ) {
 			$attachments = explode( "\n", str_replace( "\r\n", "\n", $attachments ) );
 		}
-
-
 
 		// Headers
 		$cc = $bcc = $reply_to = array();
@@ -208,7 +143,7 @@ if ( !function_exists('wp_mail') ) {
 					list( $name, $content ) = explode( ':', trim( $header ), 2 );
 
 					// Cleanup crew
-					$name    = trim( $name    );
+					$name    = trim( $name );
 					$content = trim( $content );
 
 					switch ( strtolower( $name ) ) {
@@ -266,8 +201,6 @@ if ( !function_exists('wp_mail') ) {
 			}
 		}
 
-
-
 		 /* If we don't have an email from the input headers default to wordpress@$sitename
 		 * Some hosts will block outgoing mail from this address if it doesn't exist but
 		 * there's no easy alternative. Defaulting to admin_email might appear to be another
@@ -296,12 +229,12 @@ if ( !function_exists('wp_mail') ) {
 
 		// this will be passed into send
 		$from = [
-			"address" =>$from_email,
-			"name" => $from_name
+			'address' => $from_email,
+			'name' => $from_name
 		];
 
 		if ( !is_array( $to ) ) {
-			 $to = explode( ',', $to );
+			$to = explode( ',', $to );
 		}
 
 		$to_addresses = [];
@@ -319,10 +252,45 @@ if ( !function_exists('wp_mail') ) {
 			$to_addresses[$recipient] = $recipient_name;
 		}
 
+		$cc_addresses = [];
+
+		foreach ( (array) $cc as $recipient ) {
+			// Break $recipient into name and address parts if in the format "Foo <bar@baz.com>"
+			$recipient_name = '';
+			if ( preg_match( '/(.*)<(.+)>/', $recipient, $matches ) ) {
+				if ( count( $matches ) == 3 ) {
+					$recipient_name = $matches[1];
+					$recipient = $matches[2];
+				}
+			}
+
+			$cc_addresses[$recipient] = $recipient_name;
+		}
+
+		// Set up headers
+		$headers['cc'] = $cc_addresses;
+
+		$bcc_addresses = [];
+
+		foreach ( (array) $bcc as $recipient ) {
+			// Break $recipient into name and address parts if in the format "Foo <bar@baz.com>"
+			$recipient_name = '';
+			if ( preg_match( '/(.*)<(.+)>/', $recipient, $matches ) ) {
+				if ( count( $matches ) == 3 ) {
+					$recipient_name = $matches[1];
+					$recipient = $matches[2];
+				}
+			}
+
+			$bcc_addresses[$recipient] = $recipient_name;
+		}
+
+		// Set up headers
+		$headers['bcc'] = $bcc_addresses;
 
 		try {
 			$resp = $mg->send($from, $to_addresses, $subject, $message, $headers, $attachments);
-		} catch (Exception $e){
+		} catch (Exception $e) {
 			$mail_error_data = compact( 'to', 'subject', 'message', 'headers', 'attachments' );
 
 			/**
