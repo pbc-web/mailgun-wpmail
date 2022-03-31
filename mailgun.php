@@ -18,7 +18,12 @@ class PBC_WP_Mail_MailGun {
 
 	private static $instance = null;
 
-	private function __construct() {
+	public function __construct() {
+
+		if (self::$instance !== null){
+			return self::$instance;
+	  	}
+
 		if(!defined('MAILGUN_API_BASE')) {
 			define('MAILGUN_API_BASE', 'https://api.mailgun.net');
 		}
@@ -79,7 +84,7 @@ if ( !function_exists('wp_mail') ) {
 
 		// look for the MailGun wrapper, if it doesn't exist create it
 		if(!isset($mg)) {
-			$mg = new PBC_WP_Mail_MailGun();
+			$mg = PBC_WP_Mail_MailGun::instance();
 		}
 
 		$atts = apply_filters( 'wp_mail', compact( 'to', 'subject', 'message', 'headers', 'attachments' ) );
