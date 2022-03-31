@@ -14,13 +14,37 @@ class PBC_WP_Mail_MailGun {
 
 	public $http;
 	public $mg;
+	static $errors = [];
 
-	public function __construct() {
+	private static $instance = null;
+
+	private function __construct() {
 		if(!defined('MAILGUN_API_BASE')) {
 			define('MAILGUN_API_BASE', 'https://api.mailgun.net');
 		}
 
 		$this->mg = \Mailgun\Mailgun::create(MAILGUN_API_KEY, MAILGUN_API_BASE);
+
+		add_action("wp_mail_failed", [__CLASS__, "capture_email_failure"]);
+	}
+
+	// The object is created from within the class itself
+  	// only if the class has no instance.
+  	public static function instance(){
+
+    	if (self::$instance == null){
+      		self::$instance = new Self();
+    	}
+ 
+    	return self::$instance;
+  }
+
+	public static function capture_email_failure($error){
+		self::$errors[] = $error;
+	}
+
+	public static function getErrors(){
+		return self::$errors;
 	}
 
 	public function send($from, $to, $subject, $message, $headers): void {
