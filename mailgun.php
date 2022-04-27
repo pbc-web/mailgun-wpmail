@@ -54,7 +54,14 @@ class PBC_WP_Mail_MailGun {
 
 	public function send($from, $to, $subject, $message, $headers): void {
 		$builder = new \Mailgun\Message\MessageBuilder();
-		$builder->setFromAddress($from['address']);
+
+		if( isset( $from['name'] ) ) {
+			$name = array( 'first' => $from['name'] );
+		} else {
+			$name = array();
+		}
+
+		$builder->setFromAddress($from['address'], $name );
 
 		foreach($to as $email => $name) {
 			$builder->addToRecipient($email, [$name]);
