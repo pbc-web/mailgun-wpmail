@@ -11,7 +11,7 @@
 	],
 	"require": {
 		"mailgun/mailgun-php": "^3.2",
-		"kriswallsmith/buzz": "^1.1",
+		"kriswallsmith/buzz": "1.1",
 		"nyholm/psr7": "^1.3"
 	}
 }
