@@ -12,11 +12,14 @@
 	"require": {
 		"mailgun/mailgun-php": "^3.5",
 		"nyholm/psr7": "^1.8",
-		"symfony/http-client": "^6.0"
+		"symfony/http-client": "^5.4"
 	},
 	"config": {
 		"allow-plugins": {
 			"php-http/discovery": true
-		}
+		},
+		"platform": {
+			"php": "8.0"
+		}		
 	}
 }
