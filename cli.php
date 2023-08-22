@@ -40,10 +40,14 @@ WP_CLI::add_command("mail-test send", function($args = [], $assoc_args = []){
 			"This was a test email"
 		);
 
+		if( defined("DISABLE_EMAIL") && (DISABLE_EMAIL === true)){
+			WP_CLI::warning("Sending email is currently disabled as the constant `DISABLE_EMAIL` is true. To keep WordPress working as expected, wp_mail returns true even though the email is not sent. This can lead to false reporting on tests.");
+		}
+
 		if($send_result === true){
 			WP_CLI::success("wp_mail() reports that the email was sent correctly");
 		} else {
-			WP_CLI::warning("wp_mail() reports that the email failed to send");
+			WP_CLI::error("wp_mail() reports that the email failed to send", false);
 			WP_CLI::error_multi_line(print_r($mail_error, true));
 		}
 } );
