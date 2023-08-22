@@ -76,6 +76,15 @@ class PBC_WP_Mail_MailGun {
 		foreach($headers['bcc'] as $email => $name) {
 			$builder->addBccRecipient($email, [$name]);
 		}
+		
+		if(isset($headers['reply-to'])){
+			foreach($headers['reply-to'] as $email) {
+				$builder->setReplyToAddress($email);
+			}
+		}
+
+		
+
 
 		$builder->setHtmlBody($message);
 		$builder->setTextBody($message);
@@ -85,9 +94,58 @@ class PBC_WP_Mail_MailGun {
 	}
 }
 
+function log_email_generath_path(){
+	$log_dir = wp_upload_dir();
+	$log_dir = $log_dir['basedir'] . "/email-logs";
+	return $log_dir;
+}
+
+function log_email_create_folder($log_dir){
+
+	if(!file_exists($log_dir)){
+		wp_mkdir_p($log_dir);
+	}
+}
+
+function log_email_generate_filename($log_dir){
+	$date = date("Y-m-d", time() );
+	$salt = substr(wp_hash($date, "auth"), 0, 10);
+	return sprintf("%s/%s-email.%s.log", $log_dir, $date, $salt);
+}
+
+function log_email($to, $subject, $message, $headers = "", $attachments = "", $disabled = false){
+
+	$data = sprintf("Time: %s \r\n" .
+		"To: %s \r\n" .
+		"Subject: %s \r\n" .
+		"Disabled: %s \r\n" .
+		"Message: --- \r\n" .
+		"%s \r\n" .
+		"----------------  \r\n" .
+		"Headers: --- \r\n" .
+		"%s \r\n" .
+		"----------------  \r\n" .
+		"Attachments: --- \r\n" .
+		"%s \r\n" .
+		"----------------  \r\n" .
+		"\r\n",
+	date("Y-M-d H:i:s", time() ), $to, $subject, $disabled, $message, print_r($headers, true) , print_r($attachments, true));
+
+	$log_dir = log_email_generath_path();
+	log_email_create_folder($log_dir);
+	$filename = log_email_generate_filename($log_dir);
+	file_put_contents($filename, $data, FILE_APPEND);
+
+}
+
 // Only let this get created once
 if ( !function_exists('wp_mail') ) {
 	function wp_mail( $to, $subject, $message, $headers = "", $attachments = "" ) {
+
+		if( defined("DISABLE_EMAIL") && (DISABLE_EMAIL === true)){
+			log_email($to, $subject, $message, $headers, $attachments, DISABLE_EMAIL);
+			return true;
+		}
 
 		global $mg;
 
@@ -125,6 +183,7 @@ if ( !function_exists('wp_mail') ) {
 		// Headers
 		$cc = $bcc = $reply_to = array();
 
+		
 		if ( empty( $headers ) ) {
 			$headers = array();
 		} else {
@@ -135,12 +194,14 @@ if ( !function_exists('wp_mail') ) {
 			} else {
 				$tempheaders = $headers;
 			}
+
 			$headers = array();
 
 			// If it's actually got contents
 			if ( !empty( $tempheaders ) ) {
 				// Iterate through the raw headers
 				foreach ( (array) $tempheaders as $header ) {
+
 					if ( strpos($header, ':') === false ) {
 						if ( false !== stripos( $header, 'boundary=' ) ) {
 							$parts = preg_split('/boundary=/i', trim( $header ) );
@@ -150,6 +211,8 @@ if ( !function_exists('wp_mail') ) {
 					}
 					// Explode them out
 					list( $name, $content ) = explode( ':', trim( $header ), 2 );
+
+				
 
 					// Cleanup crew
 					$name    = trim( $name );
@@ -200,6 +263,7 @@ if ( !function_exists('wp_mail') ) {
 							break;
 						case 'reply-to':
 							$reply_to = array_merge( (array) $reply_to, explode( ',', $content ) );
+
 							break;
 						default:
 							// Add it to our grand headers array
@@ -297,6 +361,9 @@ if ( !function_exists('wp_mail') ) {
 		// Set up headers
 		$headers['bcc'] = $bcc_addresses;
 
+		//
+		$headers['reply-to'] = $reply_to;
+
 		try {
 			$resp = $mg->send($from, $to_addresses, $subject, $message, $headers, $attachments);
 		} catch (Exception $e) {
@@ -315,6 +382,7 @@ if ( !function_exists('wp_mail') ) {
 			return false;
 		}
 
+		log_email($to, $subject, $message, $headers, $attachments);
 		return true;
 	}
 }
