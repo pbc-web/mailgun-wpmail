@@ -1,0 +1,3 @@
+<?php
+
+// silemce is golden
