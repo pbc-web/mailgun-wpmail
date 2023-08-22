@@ -10,6 +10,8 @@
  *
 */
 
+include("cli.php");
+
 class PBC_WP_Mail_MailGun {
 
 	public $http;
