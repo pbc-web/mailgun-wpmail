@@ -10,112 +10,110 @@
  *
 */
 
-include("cli.php");
+require 'cli.php';
 
 class PBC_WP_Mail_MailGun {
 
 	public $http;
 	public $mg;
-	static $errors = [];
+	private static $errors = array();
 
 	private static $instance = null;
 
 	public function __construct() {
 
-		if (self::$instance !== null){
+		if ( self::$instance !== null ) {
 			return self::$instance;
-	  	}
-
-		if(!defined('MAILGUN_API_BASE')) {
-			define('MAILGUN_API_BASE', 'https://api.mailgun.net');
 		}
 
-		$this->mg = \Mailgun\Mailgun::create(MAILGUN_API_KEY, MAILGUN_API_BASE);
+		if ( ! defined( 'MAILGUN_API_BASE' ) ) {
+			define( 'MAILGUN_API_BASE', 'https://api.mailgun.net' );
+		}
 
-		add_action("wp_mail_failed", [__CLASS__, "capture_email_failure"]);
+		$this->mg = \Mailgun\Mailgun::create( MAILGUN_API_KEY, MAILGUN_API_BASE );
+
+		add_action( 'wp_mail_failed', array( __CLASS__, 'capture_email_failure' ) );
 	}
 
 	// The object is created from within the class itself
-  	// only if the class has no instance.
-  	public static function instance(){
+	// only if the class has no instance.
+	public static function instance() {
 
-    	if (self::$instance == null){
-      		self::$instance = new Self();
-    	}
- 
-    	return self::$instance;
-  }
+		if ( self::$instance === null ) {
+			self::$instance = new self();
+		}
 
-	public static function capture_email_failure($error){
+		return self::$instance;
+	}
+
+	public static function capture_email_failure( $error ) {
 		self::$errors[] = $error;
 	}
 
-	public static function getErrors(){
+	public static function get_errors() {
 		return self::$errors;
 	}
 
-	public function send($from, $to, $subject, $message, $headers): void {
+	public function send( $from, $to, $subject, $message, $headers ): void {
 		$builder = new \Mailgun\Message\MessageBuilder();
 
-		if( isset( $from['name'] ) ) {
+		if ( isset( $from['name'] ) ) {
 			$name = array( 'first' => $from['name'] );
 		} else {
 			$name = array();
 		}
 
-		$builder->setFromAddress($from['address'], $name );
+		$builder->setFromAddress( $from['address'], $name );
 
-		foreach($to as $email => $name) {
-			$builder->addToRecipient($email, [$name]);
+		foreach ( $to as $email => $name ) {
+			$builder->addToRecipient( $email, array( $name ) );
 		}
 
-		foreach($headers['cc'] as $email => $name) {
-			$builder->addCcRecipient($email, [$name]);
+		foreach ( $headers['cc'] as $email => $name ) {
+			$builder->addCcRecipient( $email, array( $name ) );
 		}
 
-		foreach($headers['bcc'] as $email => $name) {
-			$builder->addBccRecipient($email, [$name]);
+		foreach ( $headers['bcc'] as $email => $name ) {
+			$builder->addBccRecipient( $email, array( $name ) );
 		}
-		
-		if(isset($headers['reply-to'])){
-			foreach($headers['reply-to'] as $email) {
-				$builder->setReplyToAddress($email);
+
+		if ( isset( $headers['reply-to'] ) ) {
+			foreach ( $headers['reply-to'] as $email ) {
+				$builder->setReplyToAddress( $email );
 			}
 		}
 
-		
+		$builder->setHtmlBody( $message );
+		$builder->setTextBody( $message );
+		$builder->setSubject( $subject );
 
-
-		$builder->setHtmlBody($message);
-		$builder->setTextBody($message);
-		$builder->setSubject($subject);
-
-		$this->mg->messages()->send(MAILGUN_DOMAIN, $builder->getMessage());
+		$this->mg->messages()->send( MAILGUN_DOMAIN, $builder->getMessage() );
 	}
 }
 
-function log_email_generath_path(){
+function log_email_generath_path() {
 	$log_dir = wp_upload_dir();
-	$log_dir = $log_dir['basedir'] . "/email-logs";
+	$log_dir = $log_dir['basedir'] . '/email-logs';
 	return $log_dir;
 }
 
-function log_email_create_folder($log_dir){
+function log_email_create_folder( $log_dir ) {
 
-	if(!file_exists($log_dir)){
-		wp_mkdir_p($log_dir);
+	if ( ! file_exists( $log_dir ) ) {
+		wp_mkdir_p( $log_dir );
 	}
 }
 
-function log_email_generate_filename($log_dir){
-	$date = date("Y-m-d", time() );
-	$salt = substr(wp_hash($date, "auth"), 0, 10);
-	return sprintf("%s/%s-email.%s.log", $log_dir, $date, $salt);
+function log_email_generate_filename( $log_dir ) {
+	$date = gmdate( 'Y-m-d', time() );
+	$salt = substr( wp_hash( $date, 'auth' ), 0, 10 );
+	return sprintf( '%s/%s-email.%s.log', $log_dir, $date, $salt );
 }
 
-function log_email($to, $subject, $message, $headers = "", $attachments = "", $disabled = false){
+function log_email( $to, $subject, $message, $headers = '', $attachments = '', $disabled = false ) {
 
-	$data = sprintf("Time: %s \r\n" .
+	$data = sprintf(
+		"Time: %s \r\n" .
 		"To: %s \r\n" .
 		"Subject: %s \r\n" .
 		"Disabled: %s \r\n" .
@@ -129,28 +127,39 @@ function log_email($to, $subject, $message, $headers = "", $attachments = "", $d
 		"%s \r\n" .
 		"----------------  \r\n" .
 		"\r\n",
-	date("Y-M-d H:i:s", time() ), $to, $subject, $disabled, $message, print_r($headers, true) , print_r($attachments, true));
+		gmdate( 'Y-M-d H:i:s', time() ),
+		$to,
+		$subject,
+		$disabled,
+		$message,
+		print_r( $headers, true ),
+		print_r( $attachments, true )
+	);
 
 	$log_dir = log_email_generath_path();
-	log_email_create_folder($log_dir);
-	$filename = log_email_generate_filename($log_dir);
-	file_put_contents($filename, $data, FILE_APPEND);
-
+	log_email_create_folder( $log_dir );
+	$filename = log_email_generate_filename( $log_dir );
+	file_put_contents( $filename, $data, FILE_APPEND );
 }
 
 // Only let this get created once
-if ( !function_exists('wp_mail') ) {
-	function wp_mail( $to, $subject, $message, $headers = "", $attachments = "" ) {
+if ( ! function_exists( 'wp_mail' ) ) {
+	function wp_mail( $to, $subject, $message, $headers = '', $attachments = '' ) {
 
-		if( defined("DISABLE_EMAIL") && (DISABLE_EMAIL === true)){
-			log_email($to, $subject, $message, $headers, $attachments, DISABLE_EMAIL);
+		// Headers
+		$cc       = array();
+		$bcc      = array();
+		$reply_to = array();
+
+		if ( defined( 'DISABLE_EMAIL' ) && ( DISABLE_EMAIL === true ) ) {
+			log_email( $to, $subject, $message, $headers, $attachments, DISABLE_EMAIL );
 			return true;
 		}
 
 		global $mg;
 
 		// look for the MailGun wrapper, if it doesn't exist create it
-		if(!isset($mg)) {
+		if ( ! isset( $mg ) ) {
 			$mg = PBC_WP_Mail_MailGun::instance();
 		}
 
@@ -176,18 +185,14 @@ if ( !function_exists('wp_mail') ) {
 			$attachments = $atts['attachments'];
 		}
 
-		if ( !is_array( $attachments ) ) {
+		if ( ! is_array( $attachments ) ) {
 			$attachments = explode( "\n", str_replace( "\r\n", "\n", $attachments ) );
 		}
 
-		// Headers
-		$cc = $bcc = $reply_to = array();
-
-		
 		if ( empty( $headers ) ) {
 			$headers = array();
 		} else {
-			if ( !is_array( $headers ) ) {
+			if ( ! is_array( $headers ) ) {
 				// Explode the headers out, so this function can take both
 				// string headers and an array of headers.
 				$tempheaders = explode( "\n", str_replace( "\r\n", "\n", $headers ) );
@@ -198,21 +203,19 @@ if ( !function_exists('wp_mail') ) {
 			$headers = array();
 
 			// If it's actually got contents
-			if ( !empty( $tempheaders ) ) {
+			if ( ! empty( $tempheaders ) ) {
 				// Iterate through the raw headers
 				foreach ( (array) $tempheaders as $header ) {
 
-					if ( strpos($header, ':') === false ) {
+					if ( strpos( $header, ':' ) === false ) {
 						if ( false !== stripos( $header, 'boundary=' ) ) {
-							$parts = preg_split('/boundary=/i', trim( $header ) );
+							$parts    = preg_split( '/boundary=/i', trim( $header ) );
 							$boundary = trim( str_replace( array( "'", '"' ), '', $parts[1] ) );
 						}
 						continue;
 					}
 					// Explode them out
 					list( $name, $content ) = explode( ':', trim( $header ), 2 );
-
-				
 
 					// Cleanup crew
 					$name    = trim( $name );
@@ -234,7 +237,7 @@ if ( !function_exists('wp_mail') ) {
 								$from_email = str_replace( '>', '', $from_email );
 								$from_email = trim( $from_email );
 
-							// Avoid setting an empty $from_email.
+								// Avoid setting an empty $from_email.
 							} elseif ( '' !== trim( $content ) ) {
 								$from_email = trim( $content );
 							}
@@ -242,15 +245,15 @@ if ( !function_exists('wp_mail') ) {
 						case 'content-type':
 							if ( strpos( $content, ';' ) !== false ) {
 								list( $type, $charset_content ) = explode( ';', $content );
-								$content_type = trim( $type );
+								$content_type                   = trim( $type );
 								if ( false !== stripos( $charset_content, 'charset=' ) ) {
 									$charset = trim( str_replace( array( 'charset=', '"' ), '', $charset_content ) );
 								} elseif ( false !== stripos( $charset_content, 'boundary=' ) ) {
 									$boundary = trim( str_replace( array( 'BOUNDARY=', 'boundary=', '"' ), '', $charset_content ) );
-									$charset = '';
+									$charset  = '';
 								}
 
-							// Avoid setting an empty $content_type.
+								// Avoid setting an empty $content_type.
 							} elseif ( '' !== trim( $content ) ) {
 								$content_type = trim( $content );
 							}
@@ -267,24 +270,24 @@ if ( !function_exists('wp_mail') ) {
 							break;
 						default:
 							// Add it to our grand headers array
-							$headers[trim( $name )] = trim( $content );
+							$headers[ trim( $name ) ] = trim( $content );
 							break;
 					}
 				}
 			}
 		}
 
-		 /* If we don't have an email from the input headers default to wordpress@$sitename
+		/* If we don't have an email from the input headers default to wordpress@$sitename
 		 * Some hosts will block outgoing mail from this address if it doesn't exist but
 		 * there's no easy alternative. Defaulting to admin_email might appear to be another
 		 * option but some hosts may refuse to relay mail from an unknown domain. See
 		 * https://core.trac.wordpress.org/ticket/5007.
 		 */
 
-		if ( !isset( $from_email ) ) {
+		if ( ! isset( $from_email ) ) {
 			// Get the site domain and get rid of www.
 			$sitename = strtolower( $_SERVER['SERVER_NAME'] );
-			if ( substr( $sitename, 0, 4 ) == 'www.' ) {
+			if ( substr( $sitename, 0, 4 ) === 'www.' ) {
 				$sitename = substr( $sitename, 4 );
 			}
 			$from_email = 'wordpress@' . $sitename;
@@ -295,67 +298,67 @@ if ( !function_exists('wp_mail') ) {
 
 		// From email and name
 		// If we don't have a name from the input headers
-		if ( !isset( $from_name ) ) {
+		if ( ! isset( $from_name ) ) {
 			$from_name = 'WordPress';
 		}
 		$from_name = apply_filters( 'wp_mail_from_name', $from_name );
 
 		// this will be passed into send
-		$from = [
+		$from = array(
 			'address' => $from_email,
-			'name' => $from_name
-		];
+			'name'    => $from_name,
+		);
 
-		if ( !is_array( $to ) ) {
+		if ( ! is_array( $to ) ) {
 			$to = explode( ',', $to );
 		}
 
-		$to_addresses = [];
+		$to_addresses = array();
 
 		foreach ( (array) $to as $recipient ) {
 			// Break $recipient into name and address parts if in the format "Foo <bar@baz.com>"
 			$recipient_name = '';
 			if ( preg_match( '/(.*)<(.+)>/', $recipient, $matches ) ) {
-				if ( count( $matches ) == 3 ) {
+				if ( count( $matches ) === 3 ) {
 					$recipient_name = $matches[1];
-					$recipient = $matches[2];
+					$recipient      = $matches[2];
 				}
 			}
 
-			$to_addresses[$recipient] = $recipient_name;
+			$to_addresses[ $recipient ] = $recipient_name;
 		}
 
-		$cc_addresses = [];
+		$cc_addresses = array();
 
 		foreach ( (array) $cc as $recipient ) {
 			// Break $recipient into name and address parts if in the format "Foo <bar@baz.com>"
 			$recipient_name = '';
 			if ( preg_match( '/(.*)<(.+)>/', $recipient, $matches ) ) {
-				if ( count( $matches ) == 3 ) {
+				if ( count( $matches ) === 3 ) {
 					$recipient_name = $matches[1];
-					$recipient = $matches[2];
+					$recipient      = $matches[2];
 				}
 			}
 
-			$cc_addresses[$recipient] = $recipient_name;
+			$cc_addresses[ $recipient ] = $recipient_name;
 		}
 
 		// Set up headers
 		$headers['cc'] = $cc_addresses;
 
-		$bcc_addresses = [];
+		$bcc_addresses = array();
 
 		foreach ( (array) $bcc as $recipient ) {
 			// Break $recipient into name and address parts if in the format "Foo <bar@baz.com>"
 			$recipient_name = '';
 			if ( preg_match( '/(.*)<(.+)>/', $recipient, $matches ) ) {
-				if ( count( $matches ) == 3 ) {
+				if ( count( $matches ) === 3 ) {
 					$recipient_name = $matches[1];
-					$recipient = $matches[2];
+					$recipient      = $matches[2];
 				}
 			}
 
-			$bcc_addresses[$recipient] = $recipient_name;
+			$bcc_addresses[ $recipient ] = $recipient_name;
 		}
 
 		// Set up headers
@@ -365,8 +368,8 @@ if ( !function_exists('wp_mail') ) {
 		$headers['reply-to'] = $reply_to;
 
 		try {
-			$resp = $mg->send($from, $to_addresses, $subject, $message, $headers, $attachments);
-		} catch (Exception $e) {
+			$resp = $mg->send( $from, $to_addresses, $subject, $message, $headers, $attachments );
+		} catch ( Exception $e ) {
 			$mail_error_data = compact( 'to', 'subject', 'message', 'headers', 'attachments' );
 
 			/**
@@ -382,7 +385,7 @@ if ( !function_exists('wp_mail') ) {
 			return false;
 		}
 
-		log_email($to, $subject, $message, $headers, $attachments);
+		log_email( $to, $subject, $message, $headers, $attachments );
 		return true;
 	}
 }
