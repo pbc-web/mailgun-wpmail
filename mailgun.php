@@ -112,8 +112,13 @@ function log_email_generate_filename( $log_dir ) {
 
 function log_email( $to, $subject, $message, $headers = '', $attachments = '', $disabled = false ) {
 
+	$to          = is_array( $to ) ? $to : array( $to );
 	$headers     = is_array( $headers ) ? $headers : array( $headers );
 	$attachments = is_array( $attachments ) ? $attachments : array( $attachments );
+
+	$to          = count( $to ) ? print_r( $to, true ) : '';
+	$headers     = count( $headers ) ? print_r( $headers, true ) : '';
+	$attachments = count( $attachments ) ? print_r( $attachments, true ) : '';	
 
 	$data = sprintf(
 		"Time: %s \r\n" .
