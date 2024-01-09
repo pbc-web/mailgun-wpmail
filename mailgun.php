@@ -118,7 +118,7 @@ function log_email( $to, $subject, $message, $headers = '', $attachments = '', $
 
 	$to          = count( $to ) ? print_r( $to, true ) : '';
 	$headers     = count( $headers ) ? print_r( $headers, true ) : '';
-	$attachments = count( $attachments ) ? print_r( $attachments, true ) : '';	
+	$attachments = count( $attachments ) ? print_r( $attachments, true ) : '';
 
 	$data = sprintf(
 		"Time: %s \r\n" .
