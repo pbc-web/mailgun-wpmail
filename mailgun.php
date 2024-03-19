@@ -54,7 +54,7 @@ class PBC_WP_Mail_MailGun {
 		return self::$errors;
 	}
 
-	public function send( $from, $to, $subject, $message, $headers ): void {
+	public function send( $from, $to, $subject, $message, $headers, $attachments ): void {
 		$builder = new \Mailgun\Message\MessageBuilder();
 
 		if ( isset( $from['name'] ) ) {
@@ -82,6 +82,12 @@ class PBC_WP_Mail_MailGun {
 				$builder->setReplyToAddress( $email );
 			}
 		}
+
+		if ( is_array( $attachments ) ) {
+			foreach ( $attachments as $attachment ) {
+				$builder->addAttachment( $attachment );
+			}
+		}		
 
 		$builder->setHtmlBody( $message );
 		$builder->setTextBody( $message );
