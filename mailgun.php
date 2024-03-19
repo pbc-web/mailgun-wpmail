@@ -87,7 +87,7 @@ class PBC_WP_Mail_MailGun {
 			foreach ( $attachments as $attachment ) {
 				$builder->addAttachment( $attachment );
 			}
-		}		
+		}
 
 		$builder->setHtmlBody( $message );
 		$builder->setTextBody( $message );
