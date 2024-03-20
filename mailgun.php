@@ -199,7 +199,7 @@ if ( ! function_exists( 'wp_mail' ) ) {
 			$attachments = $atts['attachments'];
 		}
 
-		if ( ! is_array( $attachments ) ) {
+		if ( ! is_array( $attachments ) && ! empty( $attachments ) ) {
 			$attachments = explode( "\n", str_replace( "\r\n", "\n", $attachments ) );
 		}
 
