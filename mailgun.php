@@ -394,7 +394,7 @@ if ( ! function_exists( 'wp_mail' ) ) {
 			 * @param WP_Error $error A WP_Error object with the phpmailerException code, message, and an array
 			 *                        containing the mail recipient, subject, message, headers, and attachments.
 			 */
-			do_action( 'wp_mail_failed', new WP_Error( $e->getCode(), $e->getMessage(), $mail_error_data ) );
+			do_action( 'wp_mail_failed', new WP_Error( "wp_mail_failed", $e->getMessage(), $mail_error_data ) );
 
 			return false;
 		}
