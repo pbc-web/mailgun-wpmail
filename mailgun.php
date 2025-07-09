@@ -118,6 +118,10 @@ function log_email_generate_filename( $log_dir ) {
 
 function log_email( $to, $subject, $message, $headers = '', $attachments = '', $disabled = false ) {
 
+	if(!apply_filters("mailgun_email_logging_enabled", true)){
+		return;
+	}
+	
 	$to          = is_array( $to ) ? $to : array( $to );
 	$headers     = is_array( $headers ) ? $headers : array( $headers );
 	$attachments = is_array( $attachments ) ? $attachments : array( $attachments );
